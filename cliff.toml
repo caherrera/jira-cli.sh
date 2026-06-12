@@ -30,5 +30,5 @@ commit_parsers = [
 ]
 
 [remote.github]
-owner = "caherrera"
+owner = "kero-sh"
 repo = "jira-cli.sh"

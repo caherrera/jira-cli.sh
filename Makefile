@@ -84,6 +84,7 @@ check-scripts:
 	@echo "Verifying script syntax..."
 	@for script in $(SRCDIR)/*.sh $(LOCALLIBDIR)/*.sh $(SCRIPTS_DIR)/*.sh; do \
 		[ -f "$$script" ] || continue; \
+		case "$$script" in *.zsh.sh) continue ;; esac; \
 		echo "Checking: $$script"; bash -n "$$script" || exit 1; \
 	done
 	@echo "All scripts have valid syntax"
