@@ -2056,6 +2056,12 @@ if [[ -z "$JIRA_AUTH" ]]; then
   fi
 fi
 
+# Ignore raw Atlassian PAT in JIRA_TOKEN when email+api_token are available (common misconfiguration)
+if [[ "$JIRA_AUTH" == "basic" ]] && [[ -n "$JIRA_TOKEN" ]] && [[ "$JIRA_TOKEN" == ATATT* ]] \
+    && [[ -n "$JIRA_EMAIL" && -n "$JIRA_API_TOKEN" ]]; then
+  JIRA_TOKEN=""
+fi
+
 # Build AUTH_HEADER based on JIRA_AUTH type
 case "$JIRA_AUTH" in
   basic)
@@ -2766,7 +2772,7 @@ fi
 # Jira Cloud (API v3): /rest/api/3/search fue removido; usar /rest/api/3/search/jql
 # Ref: https://confluence.atlassian.com/jirakb/run-jql-search-query-using-jira-cloud-rest-api-1289424308.html
 if [[ "$JIRA_API_VERSION" == "3" ]] && [[ "$REQUEST_URL" == *"/rest/api/3/search?"* ]] && [[ "$REQUEST_URL" != *"/rest/api/3/search/jql?"* ]]; then
-  REQUEST_URL="${REQUEST_URL//\/rest\/api\/3\/search?/\/rest\/api\/3\/search\/jql?}"
+  REQUEST_URL="${REQUEST_URL//\/rest\/api\/3\/search?//rest/api/3/search/jql?}"
 fi
 
 # Import de componentes: leer stdin, parsear y POST por cada componente

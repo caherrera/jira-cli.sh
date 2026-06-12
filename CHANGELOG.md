@@ -2,6 +2,11 @@
 
 ### [Unreleased]
 
+#### Jira Cloud API v3 (búsqueda y autenticación)
+
+- **Búsqueda JQL**: corrige el reemplazo de URL `/rest/api/3/search?` → `/rest/api/3/search/jql?` en `src/jira.sh` y `lib/jira.search.sh` (endpoint requerido en Cloud v3).
+- **Basic Auth / PAT**: si `JIRA_AUTH` es `basic` y `JIRA_EMAIL` + `JIRA_API_TOKEN` están definidos, se ignora `JIRA_TOKEN` cuando contiene un PAT crudo (`ATATT*`), evitando fallos de autenticación por mala configuración.
+
 #### Movimiento de issues entre proyectos
 
 - **Nuevo flujo de `move`**: se agrega el atajo `jira move KEY --to-project PROJ` y la opción `--move PROJ` en `jira issue` para clonar un issue en otro proyecto (útil para mover trabajo entre tableros).
