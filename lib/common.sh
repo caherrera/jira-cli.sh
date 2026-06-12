@@ -9,7 +9,7 @@ readonly SYSTEM_LOCAL_BIN_DIR="/usr/local/bin/jira-cli";
 HELPER_FOUND=false
 
 # 1. Check if HELPER_SCRIPT environment variable is set
-if [[ -n "$HELPER_SCRIPT" ]]; then
+if [[ -n "${HELPER_SCRIPT:-}" ]]; then
   if [[ -f "$HELPER_SCRIPT" ]]; then
     # shellcheck source=/dev/null
     source "$HELPER_SCRIPT"
@@ -32,8 +32,17 @@ if [[ "$HELPER_FOUND" == "false" ]]; then
   done
 fi
 
-# 3. If still not found, define minimal fallback functions
+# 3. If still not found, exit with resolution hints
 if [[ "$HELPER_FOUND" == "false" ]]; then
-  echo "[CRITICAL] helpers.sh not found" >&2
+  cat >&2 <<EOF
+[CRITICAL] helpers.sh not found (external dependency; not bundled with jira-cli)
+
+Resolve it using one of:
+  1. export HELPER_SCRIPT=/path/to/helpers.sh
+  2. Symlink locally: vendor/helpers.sh or lib/helpers.sh (next to this repo)
+  3. After make install: \$PREFIX/vendor/helpers.sh (default ~/.local/vendor/helpers.sh)
+
+Optional reference: https://github.com/kero-sh/shell-helpers
+EOF
   exit 1
 fi

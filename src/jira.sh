@@ -5,6 +5,14 @@ DIR="$( cd "$( dirname $(realpath ${BASH_SOURCE[0]} ))" && pwd )";
 # shellcheck source=/dev/null
 source "$DIR/../lib/common.sh"
 
+JIRA_CLI_ROOT="${JIRA_CLI_ROOT:-$(cd "$DIR/.." && pwd)}"
+# shellcheck source=/dev/null
+source "$DIR/../lib/jira.version.sh"
+source "$DIR/../lib/jira.create.sh"
+source "$DIR/../lib/jira.issue.view.sh"
+source "$DIR/../lib/jira.issue.link.sh"
+source "$DIR/../lib/jira.issue.pending.sh"
+
 # Uso:
 # jira [GET|POST|PUT] /endpoint [--data '{json}'|/ruta/a/payload.json] [--token TOKEN] [--host HOST] [--output csv|json|table|yaml|md] [--csv-export all|current]
 # O con sintaxis simplificada:
@@ -95,6 +103,11 @@ COMPONENTS_FORMAT=""
 # Subcommands/state for 'issue'
 ISSUE_SUBCOMMAND=""
 COMMENT_MESSAGE=""
+ISSUE_VIEW_MODE=""
+ISSUE_VIEW_FIELDS=""
+LINK_INWARD=""
+LINK_OUTWARD=""
+CREATE_EXTRA_ARGS=()
 # Move issue to another project (jira [issue] KEY --move PROJ | jira move KEY --to-project PROJ)
 ISSUE_MOVE_MODE=false
 ISSUE_MOVE_TARGET_PROJECT=""
@@ -356,8 +369,13 @@ Descripción:
 
 Comandos:
   comment [key]      Agrega un comentario al issue especificado
+  link IN OUT        Crea un enlace entre dos issues
+  pending            Lista issues asignados a ti que no están en Done
 
 Opciones:
+  --resume|--resumen Muestra resumen del issue (campos clave)
+  --fields EXPR      Campos a mostrar (expresión jq)
+  --full             Muestra todos los campos
   --transitions      Muestra transiciones disponibles
   --to ID            ID de transición a aplicar (requiere --transitions)
   --transition SPEC  Aplica transición por ID, nombre de transición o nombre de estado destino
@@ -1345,6 +1363,16 @@ USING_SIMPLIFIED_SYNTAX=false
 resource=""
 identifier=""
 
+if [[ $# -gt 0 && ("$1" == "--version" || "$1" == "-V") ]]; then
+  jira_print_version
+  exit 0
+fi
+if [[ $# -gt 0 && ("$1" == "self-update" || "$1" == "update") ]]; then
+  shift
+  jira_self_update_main "$@"
+  exit $?
+fi
+
 # Normalize move syntax so the rest of the script sees "issue KEY --move PROJ"
 if [[ $# -ge 1 && "$1" == "move" ]]; then
   shift
@@ -1438,6 +1466,17 @@ for ((i=0; i<${#temp_args[@]}; i++)); do
       ;;
     --comment-scan-max)
       COMMENT_SCAN_MAX="${temp_args[i+1]}"
+      ((i++))
+      ;;
+    --resume|--resumen)
+      ISSUE_VIEW_MODE="resume"
+      ;;
+    --full)
+      ISSUE_VIEW_MODE="full"
+      ;;
+    --fields)
+      ISSUE_VIEW_MODE="fields"
+      ISSUE_VIEW_FIELDS="${temp_args[i+1]}"
       ((i++))
       ;;
     --move)
@@ -1622,6 +1661,15 @@ if [[ $# -gt 0 ]] && [[ "$1" == "help" ]]; then
   fi
 fi
 
+# Extended create (interactive, JSON file, update by KEY)
+if [[ $# -ge 1 && "$1" == "create" ]]; then
+  if jira_create_should_use_extended "$@"; then
+    shift
+    jira_create_main "$@"
+    exit $?
+  fi
+fi
+
 # Comando directo: 'jira open KEY' → abre el issue en el navegador
 if [[ $# -gt 0 && "$1" == "open" ]]; then
   shift
@@ -1749,10 +1797,25 @@ if [[ $# -gt 0 ]] && [[ "$1" =~ ^(GET|POST|PUT)$ ]]; then
               identifier=""
             fi
             ;;
+          link)
+            ISSUE_SUBCOMMAND="link"
+            shift
+            if [[ $# -gt 0 ]] && [[ ! "$1" =~ ^- ]]; then LINK_INWARD="$1"; shift; fi
+            if [[ $# -gt 0 ]] && [[ ! "$1" =~ ^- ]]; then LINK_OUTWARD="$1"; shift; fi
+            ;;
+          pending)
+            ISSUE_SUBCOMMAND="pending"
+            shift
+            ;;
           *)
             # Issue key normal
             identifier="$1"; shift ;;
         esac
+      elif [[ "$resource" == "create" ]]; then
+        while [[ $# -gt 0 ]] && [[ ! "$1" =~ ^- ]]; do
+          CREATE_EXTRA_ARGS+=("$1")
+          shift
+        done
       else
         # Recurso genérico con identificador opcional
         if [[ $# -gt 0 ]] && [[ ! "$1" =~ ^- ]]; then
@@ -1850,9 +1913,24 @@ elif [[ $# -gt 0 ]] && [[ ! "$1" =~ ^- ]]; then
           identifier="$1"; shift
         fi
         ;;
+      link)
+        ISSUE_SUBCOMMAND="link"
+        shift
+        if [[ $# -gt 0 ]] && [[ ! "$1" =~ ^- ]]; then LINK_INWARD="$1"; shift; fi
+        if [[ $# -gt 0 ]] && [[ ! "$1" =~ ^- ]]; then LINK_OUTWARD="$1"; shift; fi
+        ;;
+      pending)
+        ISSUE_SUBCOMMAND="pending"
+        shift
+        ;;
       *)
         identifier="$1"; shift ;;
     esac
+  elif [[ "$resource" == "create" ]]; then
+    while [[ $# -gt 0 ]] && [[ ! "$1" =~ ^- ]]; do
+      CREATE_EXTRA_ARGS+=("$1")
+      shift
+    done
   else
     if [[ $# -gt 0 ]] && [[ ! "$1" =~ ^- ]]; then
       identifier="$1"; shift
@@ -1947,6 +2025,31 @@ done
 if [[ "$SHOW_HELP_FLAG" == "true" ]] && [[ -z "$resource" ]]; then
   show_help
   exit 0
+fi
+
+jira_passive_version_check "$@"
+
+if [[ "$resource" == "create" && ${#CREATE_EXTRA_ARGS[@]} -gt 0 ]]; then
+  jira_create_main "${CREATE_EXTRA_ARGS[@]}" "$@"
+  exit $?
+fi
+if [[ "$ISSUE_SUBCOMMAND" == "pending" ]]; then
+  jira_issue_pending_main "$@"
+  exit $?
+fi
+if [[ "$ISSUE_SUBCOMMAND" == "link" ]]; then
+  jira_issue_link_main ${LINK_INWARD:+"$LINK_INWARD"} ${LINK_OUTWARD:+"$LINK_OUTWARD"} "$@"
+  exit $?
+fi
+if [[ -n "$ISSUE_VIEW_MODE" && "$resource" =~ ^(issue|issues)$ && -n "$identifier" && "$ISSUE_SUBCOMMAND" != "comment" ]]; then
+  _view_args=(--ticket "$identifier")
+  case "$ISSUE_VIEW_MODE" in
+    resume) _view_args+=(--resume) ;;
+    full) _view_args+=(--full) ;;
+    fields) _view_args+=(--fields "$ISSUE_VIEW_FIELDS") ;;
+  esac
+  jira_issue_view_main "${_view_args[@]}"
+  exit $?
 fi
 
 # Validaciones específicas para argumentos de transición

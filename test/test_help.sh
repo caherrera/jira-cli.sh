@@ -62,6 +62,10 @@ test_help "jira project components (no project)" "bash $SRC_DIR/jira.sh project 
 test_help "jira issue --help" "bash $SRC_DIR/jira.sh issue --help"
 test_help "jira issue -h" "bash $SRC_DIR/jira.sh issue -h"
 test_help "jira help issue" "bash $SRC_DIR/jira.sh help issue"
+test_help "jira issue link --help" "bash $SRC_DIR/jira.sh issue link --help 2>&1 | grep -qi link"
+test_help "jira issue pending --help" "bash $SRC_DIR/jira.sh issue pending --help 2>&1 | grep -qi pending"
+test_help "jira --version" "bash $SRC_DIR/jira.sh --version 2>&1 | grep -q 'jira-cli'"
+test_help "jira self-update --help" "bash $SRC_DIR/jira.sh self-update --help 2>&1 | grep -qi update"
 
 test_help "jira search --help" "bash $SRC_DIR/jira.sh search --help"
 test_help "jira search -h" "bash $SRC_DIR/jira.sh search -h"

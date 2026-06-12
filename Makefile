@@ -1,106 +1,103 @@
 # Makefile for jira-cli
-# Self-contained installation
 
 PREFIX ?= $(HOME)/.local
 SRCDIR = src
 LOCALBINDIR = bin
 LOCALLIBDIR = lib
+MAN_DIR = man
+SCRIPTS_DIR = scripts
+DEPS_DIR = .deps
+VERSION_FILE = VERSION
+PACKAGE_NAME = jira-cli
+VERSION ?= $(shell tr -d '[:space:]' < $(VERSION_FILE) 2>/dev/null || echo 0.0.0)
+UNITTEST = $(DEPS_DIR)/shellunittest/src/unittest-cli.sh
 
-# Get list of executable scripts and libs
-SCRIPTS = $(wildcard $(LOCALBINDIR)/*)
-LIBS = $(wildcard $(LOCALLIBDIR)/*.sh)
-SRC_SCRIPTS = $(wildcard $(SRCDIR)/*.sh)
-
-.PHONY: all install uninstall clean help test
+.PHONY: all help install uninstall clean test test-deps check-scripts test-unit coverage package upgrade upgrade-dev deps
 
 all: help
 
 help:
-	@echo "Makefile for jira-cli"
+	@echo "jira-cli Makefile"
 	@echo ""
-	@echo "Usage:"
-	@echo "  make install         Install to $(PREFIX)"
-	@echo "  make install PREFIX=/usr/local"
-	@echo "                       Install to custom location (self-contained)"
-	@echo "  make uninstall       Uninstall from $(PREFIX)"
-	@echo "  make test            Verify dependencies"
-	@echo "  make clean           Clean temporary files"
-	@echo ""
+	@echo "Targets:"
+	@echo "  make install         Install current tree to PREFIX=$(PREFIX)"
+	@echo "  make upgrade         Latest GitHub release via install-core.sh"
+	@echo "  make upgrade-dev     git pull + make install"
+	@echo "  make uninstall       Remove from PREFIX"
+	@echo "  make deps            Fetch test deps (shellunittest)"
+	@echo "  make test-deps       Verify bash, curl, jq, git"
+	@echo "  make test            test-deps + Jira env check"
+	@echo "  make check-scripts   bash -n on src/, lib/, scripts/"
+	@echo "  make test-unit       Run test/ suite"
+	@echo "  make coverage        kcov over tests (if installed)"
+	@echo "  make package         dist/$(PACKAGE_NAME)-VERSION.tar.gz"
+	@echo "  make clean           Remove temp artifacts"
+
+deps:
+	@bash $(SCRIPTS_DIR)/ci-setup-deps.sh
 
 install: test-deps
-	@echo "Installing jira-cli to $(PREFIX) (self-contained)..."
-	@mkdir -p $(PREFIX)/bin
-	@mkdir -p $(PREFIX)/src
-	@mkdir -p $(PREFIX)/lib
-	@echo "Copying executables..."
-	@cp -r $(LOCALBINDIR)/* $(PREFIX)/bin/
-	@chmod +x $(PREFIX)/bin/*
-	@echo "Copying source scripts..."
-	@cp $(SRCDIR)/*.sh $(PREFIX)/src/
-	@chmod +x $(PREFIX)/src/*.sh
-	@echo "Copying libraries..."
-	@cp $(LOCALLIBDIR)/*.sh $(PREFIX)/lib/
-	@echo ""
-	@echo "==> jira-cli has been installed successfully!"
-	@echo ""
-	@echo "To use jira-cli, add the following to your shell profile:"
-	@echo ""
-	@echo "  # For bash (~/.bashrc or ~/.bash_profile):"
-	@echo "  export PATH=\"$(PREFIX)/bin:\$$PATH\""
-	@echo ""
-	@echo "  # For zsh (~/.zshrc):"
-	@echo "  export PATH=\"$(PREFIX)/bin:\$$PATH\""
-	@echo ""
-	@echo "Then restart your shell or run:"
-	@echo "  source ~/.bashrc  # or source ~/.zshrc"
-	@echo ""
-	@echo "Verify installation with:"
-	@echo "  jira --help"
-	@echo ""
+	@bash $(SCRIPTS_DIR)/install-core.sh --prefix "$(PREFIX)" --yes
+	@if [ -d $(MAN_DIR) ]; then cp -r $(MAN_DIR) $(PREFIX)/; fi
+	@echo "Installed to $(PREFIX). Add: export PATH=\"$(PREFIX)/bin:\$$PATH\""
+
+upgrade:
+	@bash $(SCRIPTS_DIR)/install-core.sh --prefix "$(PREFIX)" --yes $(if $(VERSION),--version $(VERSION),)
+
+upgrade-dev:
+	@git pull --ff-only
+	@$(MAKE) install PREFIX="$(PREFIX)"
 
 uninstall:
 	@echo "Uninstalling jira-cli from $(PREFIX)..."
-	@rm -rf $(PREFIX)/bin/jira*
-	@rm -rf $(PREFIX)/bin/md2jira
-	@rm -rf $(PREFIX)/src
-	@rm -rf $(PREFIX)/lib
-	@echo "Uninstallation completed!"
+	@rm -f $(PREFIX)/bin/jira $(PREFIX)/bin/jira-* $(PREFIX)/bin/md2jira
+	@rm -rf $(PREFIX)/src $(PREFIX)/lib $(PREFIX)/man $(PREFIX)/vendor
+	@rm -f $(PREFIX)/VERSION
+	@echo "Uninstallation completed."
 
 test-deps:
 	@echo "Verifying dependencies..."
 	@command -v bash >/dev/null 2>&1 || { echo "ERROR: bash not found"; exit 1; }
 	@command -v curl >/dev/null 2>&1 || { echo "ERROR: curl not found"; exit 1; }
-	@command -v jq >/dev/null 2>&1 || { echo "ERROR: jq not found. Install with: brew install jq (macOS) or apt-get install jq (Linux)"; exit 1; }
+	@command -v jq >/dev/null 2>&1 || { echo "ERROR: jq not found"; exit 1; }
 	@command -v git >/dev/null 2>&1 || { echo "ERROR: git not found"; exit 1; }
-	@echo "✓ Basic dependencies OK"
-	@command -v yq >/dev/null 2>&1 && echo "✓ yq found (optional)" || echo "⚠ yq not found (optional, for --output yaml)"
-	@command -v column >/dev/null 2>&1 && echo "✓ column found (optional)" || echo "⚠ column not found (optional, for --output table)"
+	@echo "Basic dependencies OK"
 
 test: test-deps
-	@echo ""
-	@echo "Testing configuration..."
-	@if [ -z "$$JIRA_HOST" ]; then \
-		echo "⚠ JIRA_HOST not configured"; \
+	@if [ -z "$$JIRA_HOST" ]; then echo "JIRA_HOST not set"; else echo "JIRA_HOST=$$JIRA_HOST"; fi
+
+test-unit: deps
+	@JIRA_NO_UPDATE_CHECK=1 SHELLUNITTEST_DIR=$(DEPS_DIR)/shellunittest ./test/run_all_tests.sh
+	@JIRA_NO_UPDATE_CHECK=1 bash test/test_help.sh
+
+coverage: deps
+	@if command -v kcov >/dev/null 2>&1; then \
+		rm -rf coverage; \
+		JIRA_NO_UPDATE_CHECK=1 kcov --exclude-pattern=/.deps/,/vendor/ coverage ./test/run_all_tests.sh; \
+		JIRA_NO_UPDATE_CHECK=1 bash test/test_help.sh; \
 	else \
-		echo "✓ JIRA_HOST: $$JIRA_HOST"; \
+		echo "kcov not installed; running test-unit"; \
+		$(MAKE) test-unit; \
 	fi
-	@if [ -z "$$JIRA_TOKEN" ] && [ -z "$$JIRA_EMAIL" ]; then \
-		echo "⚠ Authentication not configured (JIRA_TOKEN or JIRA_EMAIL+JIRA_API_TOKEN)"; \
-	else \
-		echo "✓ Authentication configured"; \
-	fi
+
+check-scripts:
+	@echo "Verifying script syntax..."
+	@for script in $(SRCDIR)/*.sh $(LOCALLIBDIR)/*.sh $(SCRIPTS_DIR)/*.sh; do \
+		[ -f "$$script" ] || continue; \
+		echo "Checking: $$script"; bash -n "$$script" || exit 1; \
+	done
+	@echo "All scripts have valid syntax"
+
+package:
+	@mkdir -p dist
+	@tar -czf dist/$(PACKAGE_NAME)-$(VERSION).tar.gz \
+		--exclude='lib/helpers.sh' \
+		$(LOCALBINDIR) $(SRCDIR) $(LOCALLIBDIR) $(MAN_DIR) \
+		Makefile $(VERSION_FILE) $(SCRIPTS_DIR)/install.sh $(SCRIPTS_DIR)/install-core.sh
+	@echo "Created dist/$(PACKAGE_NAME)-$(VERSION).tar.gz"
 
 clean:
-	@echo "Cleaning temporary files..."
 	@find . -name "*.tmp" -delete
 	@find . -name "*~" -delete
-	@echo "Cleanup completed!"
-
-.PHONY: check-scripts
-check-scripts:
-	@echo "Verifying scripts..."
-	@for script in $(SRCDIR)/*.sh; do \
-		echo "Checking: $$script"; \
-		bash -n $$script || exit 1; \
-	done
-	@echo "✓ All scripts have valid syntax"
+	@rm -rf coverage dist
+	@echo "Cleanup completed."

@@ -64,7 +64,7 @@ test_command \
 # jira move with key but no --to-project: normalized to issue ABC-123, then fails on JIRA_HOST or auth
 test_command \
     "'jira move ABC-123' without --to-project runs as GET issue and needs JIRA_HOST" \
-    "bash $SRC_DIR/jira.sh move ABC-123 2>&1" \
+    "env -u JIRA_HOST -u JIRA_TOKEN -u JIRA_EMAIL -u JIRA_API_TOKEN JIRA_NO_UPDATE_CHECK=1 bash $SRC_DIR/jira.sh move ABC-123 2>&1" \
     "JIRA_HOST"
 
 # Help: issue -h mentions --move
@@ -94,8 +94,8 @@ test_command \
 # Without auth, do_issue_move fails before fetching.
 test_command \
     "Move without token fails (auth required)" \
-    "JIRA_HOST='https://test.atlassian.net' bash $SRC_DIR/jira.sh issue ABC-123 --move PROJ2 --dry-run 2>&1" \
-    "autenticación"
+    "JIRA_NO_UPDATE_CHECK=1 JIRA_HOST='https://test.atlassian.net' bash $SRC_DIR/jira.sh issue ABC-123 --move PROJ2 --dry-run 2>&1" \
+    "permiso"
 
 echo ""
 echo "========================================"

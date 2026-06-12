@@ -212,7 +212,7 @@ process_issue() {
         if [[ "$current_category" == "Done" ]]; then
             success "Issue is already in Done status: $current_status"
             add_comment_if_requested "$ISSUE_KEY_LOCAL"
-            $DIR/jira-issue.sh "$ISSUE_KEY_LOCAL"
+            $DIR/jira.sh issue "$ISSUE_KEY_LOCAL" --resume
             return 0
         fi
         # Search for discard transition
@@ -234,7 +234,7 @@ process_issue() {
             if $DIR/jira.sh issue "$ISSUE_KEY_LOCAL" --transitions --to "$discard_id" >/dev/null 2>&1; then
                 success "Ticket discarded successfully: $discard_name"
                 add_comment_if_requested "$ISSUE_KEY_LOCAL"
-                $DIR/jira-issue.sh "$ISSUE_KEY_LOCAL"
+                $DIR/jira.sh issue "$ISSUE_KEY_LOCAL" --resume
                 return 0
             else
                 error "Failed to discard ticket"
@@ -249,7 +249,7 @@ process_issue() {
     if [[ "$current_category" == "Done" ]]; then
         success "Issue is already in Done status: $current_status"
         add_comment_if_requested "$ISSUE_KEY_LOCAL"
-        $DIR/jira-issue.sh "$ISSUE_KEY_LOCAL"
+        $DIR/jira.sh issue "$ISSUE_KEY_LOCAL" --resume
         return 0
     fi
 
@@ -294,7 +294,7 @@ process_issue() {
     # 4. Verify final result
     echo ""
     info "Final issue status:"
-    $DIR/jira-issue.sh "$ISSUE_KEY_LOCAL"
+    $DIR/jira.sh issue "$ISSUE_KEY_LOCAL" --resume
 
     # Verify if we reached the Done state
     final_data=$($DIR/jira.sh issue "$ISSUE_KEY_LOCAL" 2>/dev/null)

@@ -6,9 +6,10 @@
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="${SCRIPT_DIR}/.."
+UNITTEST_SRC="${SHELLUNITTEST_DIR:-${PROJECT_ROOT}/.deps/shellunittest}/src/unittest.sh"
 
 # Source the testing framework
-source "/Users/carlosherrera/src/carlos/caherrera/shellunittest/src/unittest.sh"
+source "$UNITTEST_SRC"
 
 # Initialize the framework
 initialize_test_framework "$@"
@@ -88,22 +89,22 @@ echo "$output" | jq . > /dev/null 2>&1
 assert_success "ADF output should be valid JSON"
 
 # Test ADF structure
-assert_contains "$output" '"type":"doc"' "ADF should have doc type"
-assert_contains "$output" '"version":1' "ADF should have version 1"
+assert_contains "$output" '"type": "doc"' "ADF should have doc type"
+assert_contains "$output" '"version": 1' "ADF should have version 1"
 
 # Test heading in ADF
 output=$(echo "# Heading" | "${PROJECT_ROOT}/bin/md2jira" --adf 2>/dev/null)
-assert_contains "$output" '"type":"heading"' "Should contain heading type"
-assert_contains "$output" '"level":1' "Should have level 1"
+assert_contains "$output" '"type": "heading"' "Should contain heading type"
+assert_contains "$output" '"level": 1' "Should have level 1"
 assert_contains "$output" "Heading" "Should contain heading text"
 
 # Test checkbox in ADF
 output=$(echo "* [x] Done" | "${PROJECT_ROOT}/bin/md2jira" --adf 2>/dev/null)
-assert_contains "$output" '"type":"taskList"' "Should contain taskList type"
-assert_contains "$output" '"state":"DONE"' "Should have DONE state"
+assert_contains "$output" '"type": "taskList"' "Should contain taskList type"
+assert_contains "$output" '"state": "DONE"' "Should have DONE state"
 
 output=$(echo "* [ ] Todo" | "${PROJECT_ROOT}/bin/md2jira" --adf 2>/dev/null)
-assert_contains "$output" '"state":"TODO"' "Should have TODO state"
+assert_contains "$output" '"state": "TODO"' "Should have TODO state"
 
 # ============================================================================
 # Test: Auto-detection

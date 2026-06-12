@@ -1,12 +1,50 @@
 # JIRA CLI Tools
 
-Complete suite of command-line tools to interact with Jira.
+[![CI](https://github.com/caherrera/jira-cli.sh/actions/workflows/ci.yml/badge.svg)](https://github.com/caherrera/jira-cli.sh/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/caherrera/jira-cli.sh/branch/main/graph/badge.svg)](https://codecov.io/gh/caherrera/jira-cli.sh)
+[![Latest Release](https://img.shields.io/github/v/release/caherrera/jira-cli.sh)](https://github.com/caherrera/jira-cli.sh/releases)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Shell](https://img.shields.io/badge/shell-Bash%204.4%2B-blue.svg)](https://www.gnu.org/software/bash/)
+[![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20macOS%20%7C%20WSL-lightgrey.svg)](#installation)
+
+Bash CLI for Jira Cloud (API v3) and Jira Server/Data Center (API v2 via `JIRA_API_VERSION=2`).
+
+## Quick Start
+
+```bash
+# Install latest release to ~/.local
+curl -fsSL https://raw.githubusercontent.com/caherrera/jira-cli.sh/main/scripts/install.sh | bash
+
+# Pin a version
+curl -fsSL https://raw.githubusercontent.com/caherrera/jira-cli.sh/main/scripts/install.sh | bash -s -- --version v0.1.0
+
+# Custom prefix
+curl -fsSL https://raw.githubusercontent.com/caherrera/jira-cli.sh/main/scripts/install.sh | bash -s -- --prefix /usr/local
+
+# Upgrade existing install
+jira self-update
+jira self-update --yes
+```
+
+Environment variables for install/upgrade: `PREFIX`, `JIRA_CLI_VERSION`, `JIRA_INSTALL_YES=1`.  
+`JIRA_NO_UPDATE_CHECK=1` disables the passive “new version available” notice only (not `jira self-update`).
+
+### Canonical `jira` subcommands
+
+| Legacy (deprecated shim) | Use instead |
+|------------------------|-------------|
+| `jira-create-issue` | `jira create` |
+| `jira-issue` | `jira issue KEY [--resume]` |
+| `jira-search` | `jira search 'JQL' [--preset summary]` |
+| `jira-issues-pending-for-me` | `jira issue pending` |
+| `jira-issue-link` | `jira issue link IN OUT [--type NAME]` |
 
 ## Table of Contents
 
 - [Installation](#installation)
   - [Quick Installation](#quick-installation)
-  - [Using Make](#using-make)
+  - [Makefile targets](#makefile-targets)
+  - [Upgrading](#upgrading)
   - [Manual Installation](#manual-installation)
 - [Configuration](#configuration)
   - [Basic Authentication](#basic-authentication-recommended-for-jira-cloud)
@@ -50,9 +88,14 @@ make install
 # Or install to custom location
 make install PREFIX=/usr/local
 
+# Pin shell-helpers version (optional)
+HELPERS_VERSION=v2.0.5 make install
+
 # Ensure ~/.local/bin is in your PATH
 export PATH="$HOME/.local/bin:$PATH"
 ```
+
+Install and `curl | bash` download the latest [shell-helpers](https://github.com/kero-sh/shell-helpers) release to `$PREFIX/vendor/helpers.sh` (real file, not a symlink). Override with `HELPERS_VERSION` (release tag, e.g. `v2.0.5`). Local development still uses a `vendor/helpers.sh` symlink or `HELPER_SCRIPT` (see [helpers.sh](#helperssh-external)).
 
 #### Option 3: Manual Symbolic Links
 
@@ -64,14 +107,37 @@ for script in *; do
 done
 ```
 
-### Using Make
+### Makefile targets
+
+| Target | Description |
+|--------|-------------|
+| `make` / `make help` | List available targets |
+| `make install` | Install current tree to `PREFIX` (default `~/.local`) |
+| `make upgrade` | Install latest GitHub release via `install-core.sh` |
+| `make upgrade-dev` | `git pull` + `make install` (dev clone) |
+| `make uninstall` | Remove installed binaries and libs |
+| `make test-deps` | Check bash, curl, jq, git |
+| `make test` | `test-deps` + Jira env check |
+| `make check-scripts` | `bash -n` on `src/` and `lib/` |
+| `make test-unit` | Run `test/` suite |
+| `make coverage` | kcov over unit tests |
+| `make package` | Build release tarball in `dist/` |
+| `make clean` | Remove temp files |
 
 ```bash
-make install         # Install to ~/.local/bin
-make install PREFIX=/usr/local  # Install to /usr/local/bin
-make uninstall       # Remove installed files
-make check-scripts   # Verify syntax
+make install PREFIX=$HOME/.local
+make upgrade PREFIX=$HOME/.local
+make check-scripts && make test-unit
 ```
+
+### Upgrading
+
+| Situation | Command |
+|-----------|---------|
+| First install (no clone) | `curl .../install.sh \| bash` |
+| Already installed | `jira self-update` |
+| From clone, local code | `make install` or `make upgrade-dev` |
+| From clone, latest release | `make upgrade` |
 
 ## Configuration
 
@@ -237,6 +303,13 @@ These tools are **mandatory** for basic jira-cli functionality:
   # CentOS/RHEL
   sudo yum install git
   ```
+
+#### helpers.sh (external)
+- **What**: External Bash library for logging and colors — **not included in this repo**
+- **Reference**: [kero-sh/shell-helpers](https://github.com/kero-sh/shell-helpers)
+- **Install**: `make install` and `curl | bash` fetch the latest release into `$PREFIX/vendor/helpers.sh` automatically.
+- **Local dev**: Set `HELPER_SCRIPT=/path/to/helpers.sh`, or symlink `vendor/helpers.sh` or `lib/helpers.sh` (see `lib/common.sh`).
+- **Local dev example**: `ln -s /path/to/shell-helpers/libs/helpers.sh vendor/helpers.sh`
 
 ### Optional Dependencies
 
@@ -710,7 +783,7 @@ shellunittest test/
 ./test/run_all_tests.sh
 
 # Run specific test file
-shellunittest test/test_helpers.sh
+shellunittest test/test_md2jira.sh
 
 # Run with different output formats
 shellunittest test/ --format=junit > test-results.xml
@@ -719,7 +792,6 @@ shellunittest test/ --format=json > test-results.json
 
 ### Test Structure
 
-- `test_helpers.sh` - Tests for helper functions (logging, colors, formatting)
 - `test_md2jira.sh` - Tests for Markdown to Jira converter
 - `test_help.sh` - Tests for help flags across all commands (50+ tests)
 - `test_project_components.sh` - Tests for project components (list, export, import)
@@ -775,7 +847,7 @@ jira-cli.sh/
 ├── src/           # Source scripts with .sh extension
 ├── lib/           # Shared libraries
 ├── test/          # Test files
-├── vendor/        # External dependencies
+├── vendor/        # Optional local symlinks to external deps (gitignored; not in releases)
 ├── Makefile       # Build and installation scripts
 └── README.md      # This file
 ```
@@ -800,8 +872,7 @@ Original files with `.sh` extension:
 
 ### Libraries (lib/)
 
-- `common.sh` - Common functions and configuration
-- `helpers.sh` - Auxiliary functions (logging, colors, etc.)
+- `common.sh` - Common functions and configuration (loads external `helpers.sh`)
 - `jira.issues.sh` - Issue-related functions
 - `jira.output.sh` - Output formatting functions
 - `jira.search.sh` - Search-related functions
@@ -811,11 +882,15 @@ Original files with `.sh` extension:
 - `completion.bash.sh` - Bash completion
 - `completion.zsh.sh` - Zsh completion
 
+### External dependency: helpers.sh
+
+See [Required Dependencies](#required-dependencies) — fetched at install time to `$PREFIX/vendor/helpers.sh`. Optional `vendor/` symlinks are for local development only.
+
 ### Internal Dependencies
 
 These are project scripts that reference each other:
 
-- **helpers.sh** (lib/) - Used by almost all scripts for logging with colors and text formatting
+- **helpers.sh** (external) - Used by almost all scripts for logging with colors and text formatting
 - **jira.sh** (src/) - Main API client used by all other scripts
 - **jira-issue.sh** (src/) - Used by `jira-issue-create-branch.sh` and `jira-issue-transition-done.sh`
 - **jira-issue-transition-done.sh** (src/) - Used by `jira-issue-transition-redo.sh`
@@ -878,20 +953,13 @@ chmod +x src/*.sh
 
 ### Scripts Can't Find helpers.sh
 
-**Cause**: Incorrect directory structure or broken symbolic links.
+**Cause**: `helpers.sh` was not found at runtime (install fetch failed, or you are running from a clone without a dev symlink).
 
-**Solution**:
+**Solution** (pick one):
 ```bash
-cd /path/to/jira-cli.sh
-# Verify structure
-ls -la bin/ src/ lib/
-
-# Recreate symbolic links if needed
-cd bin
-for f in ../src/*.sh; do
-    name=$(basename "$f" .sh)
-    ln -sf "../src/$name.sh" "$name"
-done
+make install   # or curl | bash — downloads helpers to ~/.local/vendor/helpers.sh
+export HELPER_SCRIPT=/path/to/helpers.sh
+ln -s /path/to/shell-helpers/libs/helpers.sh vendor/helpers.sh   # local dev from clone
 ```
 
 ### Dependency Issues
