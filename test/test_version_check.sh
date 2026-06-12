@@ -9,6 +9,7 @@ source "${PROJECT_ROOT}/lib/common.sh"
 source "${PROJECT_ROOT}/lib/jira.version.sh"
 
 JIRA_CLI_ROOT="$PROJECT_ROOT"
+EXPECTED_VERSION="$(tr -d '[:space:]' < "${PROJECT_ROOT}/VERSION")"
 
 pass=0
 fail=0
@@ -24,13 +25,13 @@ assert_eq() {
   fi
 }
 
-assert_eq "read version" "0.1.0" "$(jira_read_version)"
-assert_eq "semver equal" "0" "$(jira_semver_compare "0.1.0" "0.1.0")"
-assert_eq "semver lt" "-1" "$(jira_semver_compare "0.1.0" "0.2.0")"
-assert_eq "semver gt" "1" "$(jira_semver_compare "0.2.0" "0.1.0")"
+assert_eq "read version" "$EXPECTED_VERSION" "$(jira_read_version)"
+assert_eq "semver equal" "0" "$(jira_semver_compare "$EXPECTED_VERSION" "$EXPECTED_VERSION")"
+assert_eq "semver lt" "-1" "$(jira_semver_compare "$EXPECTED_VERSION" "99.99.99")"
+assert_eq "semver gt" "1" "$(jira_semver_compare "99.99.99" "$EXPECTED_VERSION")"
 
 output=$("${PROJECT_ROOT}/src/jira.sh" --version 2>/dev/null)
-assert_eq "cli --version" "jira-cli 0.1.0" "$output"
+assert_eq "cli --version" "jira-cli ${EXPECTED_VERSION}" "$output"
 
 echo
 echo "Results: $pass passed, $fail failed"
