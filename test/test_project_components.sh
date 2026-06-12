@@ -20,7 +20,7 @@ PASSED_TESTS=0
 FAILED_TESTS=0
 
 # Test result function
-test_command() {
+assert_command_output() {
     local description="$1"
     local command="$2"
     local expected_pattern="$3"
@@ -48,55 +48,55 @@ echo "========================================"
 echo ""
 
 # Test error message when no project is provided
-test_command \
+assert_command_output \
     "Error when no project provided" \
     "bash $SRC_DIR/jira.sh project components" \
     "requiere una clave de proyecto"
 
 # Test that the endpoint is constructed correctly (using --dry-run)
-test_command \
+assert_command_output \
     "Correct endpoint construction with --dry-run" \
     "JIRA_HOST='https://test.atlassian.net' JIRA_TOKEN='test' bash $SRC_DIR/jira.sh project components TEST --dry-run" \
     "project/TEST/components"
 
 # Test help message
-test_command \
+assert_command_output \
     "Help message includes components command" \
     "bash $SRC_DIR/jira.sh project -h" \
     "components <project>"
 
 # Test that the command shows up in main help
-test_command \
+assert_command_output \
     "Main help includes project components" \
     "bash $SRC_DIR/jira.sh --help" \
     "project components"
 
 # Export: --dry-run still does GET to project/PROJ/components
-test_command \
+assert_command_output \
     "Export with --dry-run uses GET project/TEST/components" \
     "JIRA_HOST='https://test.atlassian.net' JIRA_TOKEN='test' bash $SRC_DIR/jira.sh project components TEST --export --format json --dry-run 2>&1" \
     "project/TEST/components"
 
 # Export help mentions --export/--import/--format
-test_command \
+assert_command_output \
     "Project help mentions export and import" \
     "bash $SRC_DIR/jira.sh project -h" \
     "export"
 
 # Error when both --export and --import
-test_command \
+assert_command_output \
     "Error when using both --export and --import" \
     "bash $SRC_DIR/jira.sh project components PROJ --export --import 2>&1" \
     "No se puede usar --export y --import"
 
 # Error when --format is invalid (with --export)
-test_command \
+assert_command_output \
     "Error when --format is invalid" \
     "bash $SRC_DIR/jira.sh project components PROJ --export --format xml 2>&1" \
     "format debe ser uno de"
 
 # Import --dry-run: empty list should show no POST; one component should show POST
-test_command \
+assert_command_output \
     "Import --dry-run with one component shows POST component" \
     "echo '[{\"name\":\"Comp1\",\"description\":\"\"}]' | JIRA_HOST='https://test.atlassian.net' JIRA_TOKEN='test' bash $SRC_DIR/jira.sh project components PROJ --import --format json --dry-run 2>&1" \
     "component"

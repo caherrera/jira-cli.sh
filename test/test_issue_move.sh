@@ -16,7 +16,7 @@ TOTAL_TESTS=0
 PASSED_TESTS=0
 FAILED_TESTS=0
 
-test_command() {
+assert_command_output() {
     local description="$1"
     local command="$2"
     local expected_pattern="$3"
@@ -44,55 +44,55 @@ echo "========================================"
 echo ""
 
 # Validation: --move without project destination
-test_command \
+assert_command_output \
     "Error when --move without project destination" \
     "bash $SRC_DIR/jira.sh issue ABC-123 --move 2>&1" \
     "requiere el proyecto destino"
 
 # Validation: --move without issue key (only 'issue' and --move PROJ)
-test_command \
+assert_command_output \
     "Error when --move without issue key" \
     "bash $SRC_DIR/jira.sh issue --move PROJ2 2>&1" \
     "requiere un issue con clave"
 
 # jira move without key
-test_command \
+assert_command_output \
     "Error when 'jira move' without issue key" \
     "bash $SRC_DIR/jira.sh move 2>&1" \
     "requiere clave de issue"
 
 # jira move with key but no --to-project: normalized to issue ABC-123, then fails on JIRA_HOST or auth
-test_command \
+assert_command_output \
     "'jira move ABC-123' without --to-project runs as GET issue and needs JIRA_HOST" \
     "env -u JIRA_HOST -u JIRA_TOKEN -u JIRA_EMAIL -u JIRA_API_TOKEN JIRA_NO_UPDATE_CHECK=1 bash $SRC_DIR/jira.sh move ABC-123 2>&1" \
     "JIRA_HOST"
 
 # Help: issue -h mentions --move
-test_command \
+assert_command_output \
     "Issue help mentions --move" \
     "bash $SRC_DIR/jira.sh issue -h" \
     "--move"
 
 # Help: issue -h mentions --components and --yes
-test_command \
+assert_command_output \
     "Issue help mentions --components and --yes" \
     "bash $SRC_DIR/jira.sh issue -h" \
     "--yes"
 
 # jira help move shows issue help
-test_command \
+assert_command_output \
     "'jira help move' shows issue help" \
     "bash $SRC_DIR/jira.sh help move" \
     "move"
 
 # Main help mentions move
-test_command \
+assert_command_output \
     "Main help mentions move" \
     "bash $SRC_DIR/jira.sh --help" \
     "move"
 
 # Without auth, do_issue_move fails before fetching.
-test_command \
+assert_command_output \
     "Move without token fails (auth required)" \
     "JIRA_NO_UPDATE_CHECK=1 JIRA_HOST='https://test.atlassian.net' bash $SRC_DIR/jira.sh issue ABC-123 --move PROJ2 --dry-run 2>&1" \
     "permiso"
