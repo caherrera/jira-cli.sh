@@ -21,6 +21,9 @@ jobs:
     name: test (${{ matrix.label }})
     container:
       image: ${{ matrix.image }}
+    defaults:
+      run:
+        working-directory: ${{ github.workspace }}
     steps:
       - uses: actions/checkout@v4
 
@@ -52,13 +55,13 @@ jobs:
         run: make check-scripts
 
       - name: Help tests
-        run: bash test/test_help.sh
+        run: bash ./test/test_help.sh
 
       - name: Version tests
-        run: bash test/test_version_check.sh
+        run: bash ./test/test_version_check.sh
 
       - name: Self-update tests
-        run: bash test/test_self_update.sh
+        run: bash ./test/test_self_update.sh
 
       - name: Unit tests
         run: make test-unit
