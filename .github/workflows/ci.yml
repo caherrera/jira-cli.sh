@@ -20,7 +20,7 @@ jobs:
     runs-on: ubuntu-latest
     name: test (${{ matrix.label }})
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Run tests in ${{ matrix.label }}
         run: |
@@ -43,7 +43,7 @@ jobs:
   coverage:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install tools
         run: |
