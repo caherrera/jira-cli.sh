@@ -7,11 +7,21 @@ source "$DIR/../lib/common.sh"
 
 JIRA_CLI_ROOT="${JIRA_CLI_ROOT:-$(cd "$DIR/.." && pwd)}"
 # shellcheck source=/dev/null
+source "$DIR/../lib/help_loader.sh"
 source "$DIR/../lib/jira.version.sh"
 source "$DIR/../lib/jira.create.sh"
 source "$DIR/../lib/jira.issue.view.sh"
 source "$DIR/../lib/jira.issue.link.sh"
 source "$DIR/../lib/jira.issue.pending.sh"
+source "$DIR/../lib/jira.branch.sh"
+source "$DIR/../lib/jira.comment.sh"
+source "$DIR/../lib/jira.transition.sh"
+source "$DIR/../lib/jira.attachment.sh"
+source "$DIR/../lib/jira.remote_link.sh"
+source "$DIR/../lib/jira.worklog.sh"
+source "$DIR/../lib/jira.issue.edit.sh"
+source "$DIR/../lib/jira.agile.sh"
+source "$DIR/../lib/jira.adf.sh"
 
 # Uso:
 # jira [GET|POST|PUT] /endpoint [--data '{json}'|/ruta/a/payload.json] [--token TOKEN] [--host HOST] [--output csv|json|table|yaml|md] [--csv-export all|current]
@@ -1373,6 +1383,212 @@ if [[ $# -gt 0 && ("$1" == "self-update" || "$1" == "update") ]]; then
   exit $?
 fi
 
+# Universal contextual help interceptor
+for _help_arg in "$@"; do
+  if [[ "$_help_arg" =~ ^(-h|--help|help)$ ]]; then
+    _help_target=""
+    for _sub in "$@"; do
+      case "$_sub" in
+        pending) _help_target="pending"; break ;;
+        branch|branches) _help_target="branch"; break ;;
+        comment|comments) _help_target="comment"; break ;;
+        transition|transitions|done|redo) _help_target="transition"; break ;;
+        attach|attachment|attachments) _help_target="attach"; break ;;
+        link-url|remote-links) _help_target="link"; break ;;
+        link|links) _help_target="link"; break ;;
+        worklog|worklogs|log) _help_target="worklog"; break ;;
+        edit|modify) _help_target="edit"; break ;;
+        board|boards|sprint|sprints|agile) _help_target="agile"; break ;;
+        create) _help_target="create"; break ;;
+        search) _help_target="search"; break ;;
+        components|statuses) _help_target="project"; break ;;
+        workflow|workflows) _help_target="workflow"; break ;;
+        user|users) _help_target="user"; break ;;
+        profile|myself) _help_target="profile"; break ;;
+        api) _help_target="api"; break ;;
+        priority|priorities) _help_target="priority"; break ;;
+        status|statuses) _help_target="status"; break ;;
+        issuetype|issuetypes) _help_target="issuetype"; break ;;
+        project|projects) [[ -z "$_help_target" ]] && _help_target="project" ;;
+        issue|issues) [[ -z "$_help_target" ]] && _help_target="issue" ;;
+        [A-Za-z0-9_]*-[0-9]*) [[ -z "$_help_target" ]] && _help_target="issue" ;;
+      esac
+    done
+    if [[ "$_help_target" == "pending" ]]; then
+      jira_issue_pending_usage && exit 0
+    elif [[ -n "$_help_target" && "$_help_target" != "jira" ]]; then
+      show_help_from_manual "$_help_target" && exit 0
+    else
+      show_help && exit 0
+    fi
+  fi
+done
+
+# Fast-dispatch for modular domain commands (KISS & DRY)
+if [[ $# -ge 1 ]]; then
+  case "$1" in
+    branch|branches)
+      shift
+      jira_branch_main "$@"
+      exit $?
+      ;;
+    comment|comments)
+      shift
+      jira_comment_main "$@"
+      exit $?
+      ;;
+    transition|transitions)
+      shift
+      jira_transition_main "$@"
+      exit $?
+      ;;
+    done)
+      shift
+      jira_transition_main done "$@"
+      exit $?
+      ;;
+    redo)
+      shift
+      jira_transition_main redo "$@"
+      exit $?
+      ;;
+    attach|attachment|attachments)
+      shift
+      jira_attachment_main "$@"
+      exit $?
+      ;;
+    link-url)
+      shift
+      jira_remote_link_main "$@"
+      exit $?
+      ;;
+    worklog|worklogs)
+      shift
+      jira_worklog_main "$@"
+      exit $?
+      ;;
+    edit|modify)
+      shift
+      jira_issue_edit_main "$@"
+      exit $?
+      ;;
+    agile)
+      shift
+      jira_agile_main "$@"
+      exit $?
+      ;;
+    board|boards)
+      jira_agile_main board "${@:2}"
+      exit $?
+      ;;
+    sprint|sprints)
+      jira_agile_main sprint "${@:2}"
+      exit $?
+      ;;
+    pending)
+      shift
+      jira_issue_pending_main "$@"
+      exit $?
+      ;;
+    me)
+      shift
+      set -- search "assignee = currentUser() AND statusCategory != Done" "$@"
+      ;;
+  esac
+fi
+
+# Hierarchical dispatch with 'issue' as first argument
+if [[ $# -ge 2 && "$1" =~ ^(issue|issues)$ ]]; then
+  case "$2" in
+    branch|branches)
+      shift 2
+      jira_branch_main "$@"
+      exit $?
+      ;;
+    comment|comments)
+      shift 2
+      jira_comment_main "$@"
+      exit $?
+      ;;
+    transition|transitions)
+      shift 2
+      jira_transition_main "$@"
+      exit $?
+      ;;
+    attach|attachment|attachments)
+      shift 2
+      jira_attachment_main "$@"
+      exit $?
+      ;;
+    link-url|remote-links)
+      shift 2
+      jira_remote_link_main "$@"
+      exit $?
+      ;;
+    worklog|worklogs)
+      shift 2
+      jira_worklog_main "$@"
+      exit $?
+      ;;
+    edit|modify)
+      shift 2
+      jira_issue_edit_main "$@"
+      exit $?
+      ;;
+    view)
+      shift 2
+      jira_issue_view_main "$@"
+      exit $?
+      ;;
+    pending)
+      shift 2
+      jira_issue_pending_main "$@"
+      exit $?
+      ;;
+  esac
+fi
+
+# Single ticket direct flag shortcuts: jira PROJ-123 -m "...", jira PROJ-123 --attach ..., etc.
+if [[ $# -ge 1 && "$1" =~ ^[A-Za-z0-9_]+-[0-9]+$ ]]; then
+  _ticket_key="$1"
+  if [[ $# -eq 1 ]]; then
+    jira_issue_view_main --ticket "$_ticket_key"
+    exit $?
+  fi
+  case "$2" in
+    -m|--message|--comment)
+      shift
+      jira_comment_main add "$_ticket_key" "$@"
+      exit $?
+      ;;
+    --attach)
+      shift 2
+      jira_attachment_main upload "$_ticket_key" "$@"
+      exit $?
+      ;;
+    --worklog)
+      shift 2
+      jira_worklog_main add "$_ticket_key" "$@"
+      exit $?
+      ;;
+    --to-done|--done)
+      shift 2
+      jira_transition_main done "$_ticket_key" "$@"
+      exit $?
+      ;;
+    --branch)
+      shift 2
+      jira_branch_main "$_ticket_key" "$@"
+      exit $?
+      ;;
+    --link-url)
+      shift 2
+      jira_remote_link_main add "$_ticket_key" "$@"
+      exit $?
+      ;;
+  esac
+fi
+
 # Normalize move syntax so the rest of the script sees "issue KEY --move PROJ"
 if [[ $# -ge 1 && "$1" == "move" ]]; then
   shift
@@ -1712,7 +1928,7 @@ if [[ $# -gt 0 && "$1" == "comment" ]]; then
 fi
 
 # Check if the first argument is an HTTP method or a resource
-if [[ $# -gt 0 ]] && [[ "$1" =~ ^(GET|POST|PUT)$ ]]; then
+if [[ $# -gt 0 ]] && [[ "$1" =~ ^(GET|POST|PUT|DELETE|PATCH)$ ]]; then
   # Traditional syntax with HTTP method
   METHOD="$1"
   shift
@@ -1946,7 +2162,7 @@ while [[ $# -gt 0 ]]; do
     -m|--message)
       shift 2
       ;;
-    GET|POST|PUT)
+    GET|POST|PUT|DELETE|PATCH)
       if [[ "$USING_SIMPLIFIED_SYNTAX" == "true" ]]; then
         echo "Error: No puedes especificar método HTTP con sintaxis simplificada" >&2
         exit 1

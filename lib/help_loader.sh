@@ -4,69 +4,89 @@
 
 show_help_from_manual() {
     local command="$1"
-    local manual_file="$DIR/../man/jira-${command}.md"
+    local base_dir="${JIRA_CLI_ROOT:-$DIR/..}"
+    local manual_file="$base_dir/man/jira-${command}.md"
     
     # Handle command aliases
     case "$command" in
         "user"|"users")
-            manual_file="$DIR/../man/jira-user.md"
+            manual_file="$base_dir/man/jira-user.md"
             ;;
         "project"|"projects")
-            manual_file="$DIR/../man/jira-project.md"
+            manual_file="$base_dir/man/jira-project.md"
             ;;
         "issue"|"issues")
-            manual_file="$DIR/../man/jira-issue.md"
+            manual_file="$base_dir/man/jira-issue.md"
+            ;;
+        "branch"|"branches")
+            manual_file="$base_dir/man/jira-branch.md"
+            ;;
+        "comment"|"comments")
+            manual_file="$base_dir/man/jira-comment.md"
+            ;;
+        "transition"|"transitions"|"done"|"redo")
+            manual_file="$base_dir/man/jira-transition.md"
+            ;;
+        "attach"|"attachment"|"attachments")
+            manual_file="$base_dir/man/jira-attach.md"
+            ;;
+        "link"|"links"|"link-url"|"remote-links")
+            manual_file="$base_dir/man/jira-link.md"
+            ;;
+        "worklog"|"worklogs"|"log")
+            manual_file="$base_dir/man/jira-worklog.md"
+            ;;
+        "edit"|"modify")
+            manual_file="$base_dir/man/jira-edit.md"
+            ;;
+        "board"|"boards"|"sprint"|"sprints"|"agile")
+            manual_file="$base_dir/man/jira-agile.md"
             ;;
         "create")
-            manual_file="$DIR/../man/jira-create.md"
+            manual_file="$base_dir/man/jira-create.md"
             ;;
         "search")
-            manual_file="$DIR/../man/jira-search.md"
+            manual_file="$base_dir/man/jira-search.md"
             ;;
         "api")
-            manual_file="$DIR/../man/jira-api.md"
+            manual_file="$base_dir/man/jira-api.md"
             ;;
-        "priority")
-            manual_file="$DIR/../man/jira-priority.md"
+        "priority"|"priorities")
+            manual_file="$base_dir/man/jira-priority.md"
             ;;
-        "status")
-            manual_file="$DIR/../man/jira-status.md"
+        "status"|"statuses")
+            manual_file="$base_dir/man/jira-status.md"
             ;;
-        "workflow")
-            manual_file="$DIR/../man/jira-workflow.md"
+        "workflow"|"workflows")
+            manual_file="$base_dir/man/jira-workflow.md"
             ;;
         "profile"|"myself")
-            manual_file="$DIR/../man/jira-profile.md"
+            manual_file="$base_dir/man/jira-profile.md"
             ;;
-        "issuetype")
-            manual_file="$DIR/../man/jira-issuetype.md"
+        "issuetype"|"issuetypes")
+            manual_file="$base_dir/man/jira-issuetype.md"
             ;;
         *)
-            echo "Unknown command: $command" >&2
-            echo "Available commands: create, user, project, issue, search, api, priority, status, workflow, profile, issuetype" >&2
-            return 1
+            if [[ -f "$base_dir/man/jira-${command}.md" ]]; then
+                manual_file="$base_dir/man/jira-${command}.md"
+            else
+                return 1
+            fi
             ;;
     esac
     
     # Check if manual file exists
     if [[ ! -f "$manual_file" ]]; then
-        echo "Manual file not found: $manual_file" >&2
         return 1
     fi
     
-    # Load color functions
-    if [[ -f "$DIR/../vendor/helpers.sh" ]]; then
-        source "$DIR/../vendor/helpers.sh"
+    # Load color functions if present
+    if [[ -f "$base_dir/vendor/helpers.sh" ]]; then
+        # shellcheck source=/dev/null
+        source "$base_dir/vendor/helpers.sh"
     fi
     
     # Display the manual file
-    if command -v bat >/dev/null 2>&1; then
-        # Use bat if available for syntax highlighting
-        bat --style=plain --language=markdown "$manual_file"
-    else
-        # Use cat as fallback
-        cat "$manual_file"
-    fi
-    
+    cat "$manual_file"
     return 0
 }

@@ -172,37 +172,20 @@ jira_create_main() {
     if [ "$format_flag" = "--no-convert" ]; then
       description_json_arg="--arg"
     elif [ "$format_flag" = "--adf" ]; then
-      info "Converting Markdown to ADF format (Jira Cloud)..."
-      local converted
-      converted=$(echo "$final_description" | "$md2jira_bin" --adf 2>&1) || true
-      [ -z "$converted" ] && { error "Failed to convert description to ADF."; return 1; }
-      final_description="$converted"
+      final_description=$(jira_text_to_adf "$final_description")
       description_json_arg="--argjson"
     elif [ "$format_flag" = "--wiki" ]; then
-      info "Converting Markdown to Wiki Markup (Jira Server)..."
-      local converted
-      converted=$(echo "$final_description" | "$md2jira_bin" --wiki 2>&1) || true
-      [ -z "$converted" ] && { error "Failed to convert description to Wiki."; return 1; }
-      final_description="$converted"
+      final_description=$(markdown_to_jira "$final_description" 2>/dev/null || printf '%s' "$final_description")
       description_json_arg="--arg"
     else
-      if [[ "${JIRA_HOST:-}" =~ atlassian\.net ]]; then
-        info "Auto-detected: ADF format (Jira Cloud)"
-        local converted
-        converted=$(echo "$final_description" | "$md2jira_bin" --adf 2>&1) || true
-        [ -z "$converted" ] && { error "Failed to convert description to ADF."; return 1; }
-        final_description="$converted"
+      if [[ "${JIRA_API_VERSION:-3}" == "3" || "${JIRA_HOST:-}" =~ atlassian\.net ]]; then
+        final_description=$(jira_text_to_adf "$final_description")
         description_json_arg="--argjson"
       else
-        info "Auto-detected: Wiki Markup format (Jira Server)"
-        local converted
-        converted=$(echo "$final_description" | "$md2jira_bin" --wiki 2>&1) || true
-        [ -z "$converted" ] && { error "Failed to convert description to Wiki."; return 1; }
-        final_description="$converted"
+        final_description=$(markdown_to_jira "$final_description" 2>/dev/null || printf '%s' "$final_description")
         description_json_arg="--arg"
       fi
     fi
-
     local desc_length
     if [ "$description_json_arg" = "--argjson" ]; then
       desc_length=$(echo "$final_description" | wc -c | tr -d ' ')
